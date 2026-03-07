@@ -1,1 +1,98 @@
 package ru.praktikum.pages;
+
+import org.openqa.selenium.By;
+import org.openqa.selenium.JavascriptExecutor;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebElement;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.WebDriverWait;
+import org.openqa.selenium.interactions.Actions;
+
+import java.time.Duration;
+import java.util.List;
+
+public class MainPage {
+
+    private final WebDriver driver;
+    private final WebDriverWait wait;
+
+    // Локаторы
+    private final By allOrderButtons = By.xpath("//button[contains(text(), 'Заказать')]");
+    private final By cookieButton = By.id("rcc-confirm-cookie"); // Более точный IDa
+    private final By accordionQuestions = By.className("accordion__button");
+    private final By accordionAnswers = By.className("accordion__panel");
+
+    public MainPage(WebDriver driver) {
+        this.driver = driver;
+        this.wait = new WebDriverWait(driver, Duration.ofSeconds(15));
+    }
+
+    public void clickOrderButtonTop() {
+        closeCookieConsent();
+        List<WebElement> buttons = wait.until(ExpectedConditions.presenceOfAllElementsLocatedBy(allOrderButtons));
+        if (!buttons.isEmpty()) {
+            scrollToElement(buttons.get(0));
+            buttons.get(0).click();
+        }
+    }
+
+    public void clickOrderButtonBottom() {
+        closeCookieConsent();
+        List<WebElement> buttons = wait.until(ExpectedConditions.presenceOfAllElementsLocatedBy(allOrderButtons));
+        if (buttons.size() > 1) {
+            scrollToElement(buttons.get(1));
+            buttons.get(1).click();
+        }
+    }
+
+    private void scrollToElement(WebElement element) {
+        ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView(true);", element);
+    }
+
+    public void closeCookieConsent() {
+        try {
+            if (!driver.findElements(cookieButton).isEmpty()) {
+                driver.findElement(cookieButton).click();
+            }
+        } catch (Exception e) {
+            // Игнорируем, если кнопка исчезла
+        }
+    }
+
+    public void clickQuestionButton(int index) {
+        List<WebElement> questions = wait.until(ExpectedConditions.presenceOfAllElementsLocatedBy(accordionQuestions));
+        WebElement element = questions.get(index);
+
+        // Стабильный скролл через JS
+        ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView({block: 'center'});", element);
+
+        // Небольшая пауза для завершения прокрутки
+        try { Thread.sleep(500); } catch (InterruptedException e) {}
+
+        wait.until(ExpectedConditions.elementToBeClickable(element));
+        element.click();
+    }
+
+    public String getAnswerText(int index) {
+        // Ждем появления в DOM, а не только видимости
+        List<WebElement> answers = wait.until(ExpectedConditions.presenceOfAllElementsLocatedBy(accordionAnswers));
+        WebElement answer = answers.get(index);
+
+        // Ждем, пока текст станет видимым (после анимации)
+        wait.until(ExpectedConditions.visibilityOf(answer));
+        return answer.getText();
+    }
+
+    public void navigate() {
+        driver.get("https://qa-scooter.praktikum-services.ru/");
+    }
+
+    public boolean isAnswerVisible(int index) {
+        try {
+            List<WebElement> answers = wait.until(ExpectedConditions.presenceOfAllElementsLocatedBy(accordionAnswers));
+            return wait.until(ExpectedConditions.visibilityOf(answers.get(index))).isDisplayed();
+        } catch (Exception e) {
+            return false;
+        }
+    }
+}
