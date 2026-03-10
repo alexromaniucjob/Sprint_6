@@ -11,6 +11,8 @@ import org.openqa.selenium.interactions.Actions;
 import java.time.Duration;
 import java.util.List;
 
+import static ru.praktikum.Constants.BASE_URL;
+
 public class MainPage {
 
     private final WebDriver driver;
@@ -60,31 +62,34 @@ public class MainPage {
     }
 
     public void clickQuestionButton(int index) {
-        List<WebElement> questions = wait.until(ExpectedConditions.presenceOfAllElementsLocatedBy(accordionQuestions));
+        List<WebElement> questions = wait.until(
+                ExpectedConditions.presenceOfAllElementsLocatedBy(accordionQuestions));
         WebElement element = questions.get(index);
 
-        // Стабильный скролл через JS
-        ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView({block: 'center'});", element);
+        ((JavascriptExecutor) driver).executeScript(
+                "arguments[0].scrollIntoView({block: 'center'});", element);
 
-        // Небольшая пауза для завершения прокрутки
-        try { Thread.sleep(500); } catch (InterruptedException e) {}
+        wait.until(ExpectedConditions.elementToBeClickable(element)).click();
+    }
 
-        wait.until(ExpectedConditions.elementToBeClickable(element));
-        element.click();
+    public String getQuestionText(int index) {
+        List<WebElement> questions = wait.until(
+                ExpectedConditions.presenceOfAllElementsLocatedBy(accordionQuestions));
+        return questions.get(index).getText();
     }
 
     public String getAnswerText(int index) {
-        // Ждем появления в DOM, а не только видимости
-        List<WebElement> answers = wait.until(ExpectedConditions.presenceOfAllElementsLocatedBy(accordionAnswers));
+        List<WebElement> answers = wait.until(
+                ExpectedConditions.presenceOfAllElementsLocatedBy(accordionAnswers));
         WebElement answer = answers.get(index);
 
-        // Ждем, пока текст станет видимым (после анимации)
         wait.until(ExpectedConditions.visibilityOf(answer));
         return answer.getText();
     }
 
     public void navigate() {
-        driver.get("https://qa-scooter.praktikum-services.ru/");
+        driver.get(BASE_URL);
+        closeCookieConsent();
     }
 
     public boolean isAnswerVisible(int index) {
