@@ -97,38 +97,49 @@ public class OrderPage {
     /**
      * Выбирает дату доставки
      */
-public void selectDeliveryDate(String date) {
-    List<WebElement> inputs = driver.findElements(
-            By.xpath("//input[@type='date' or contains(@placeholder,'Когда')]"));
-    if (!inputs.isEmpty()) {
-        WebElement dateInput = inputs.get(0);
-        wait.until(ExpectedConditions.elementToBeClickable(dateInput));
-        ((JavascriptExecutor) driver).executeScript("arguments[0].value = '" + date + "';", dateInput);
-        dateInput.click();
-        // Ждём, пока значение реально применится
-        wait.until(d -> date.equals(dateInput.getAttribute("value")));
+    public void selectDeliveryDate(String date) {
+        // date приходит как "16.12.2025" → конвертируем в "2025-12-16"
+        String[] parts = date.split("\\.");
+        String isoDate = parts[2] + "-" + parts[1] + "-" + parts[0];
+
+        List<WebElement> inputs = driver.findElements(
+                By.xpath("//input[@type='date' or contains(@placeholder,'Когда')]"));
+        if (!inputs.isEmpty()) {
+            WebElement dateInput = inputs.get(0);
+            wait.until(ExpectedConditions.elementToBeClickable(dateInput));
+            ((JavascriptExecutor) driver).executeScript(
+                    "arguments[0].value = '" + isoDate + "';", dateInput);
+            // Тригерим событие change, чтобы React/Angular подхватил значение
+            ((JavascriptExecutor) driver).executeScript(
+                    "arguments[0].dispatchEvent(new Event('change', {bubbles: true}));", dateInput);
+        }
     }
-}
 
     /**
      * Выбирает срок аренды
      */
     public void selectRentalDuration(String duration) {
-        // Находим placeholder дропдауна "Срок аренды"
-        WebElement dropdown = driver.findElement(
-                By.xpath("//div[contains(@class,'Dropdown-placeholder') and contains(normalize-space(text()),'Срок аренды')]"));
+        // Открываем дропдаун
+        WebElement dropdown = wait.until(ExpectedConditions.elementToBeClickable(
+                By.xpath("//div[contains(@class,'Dropdown-placeholder')]")));
 
         ((JavascriptExecutor) driver).executeScript(
                 "arguments[0].scrollIntoView({block: 'center'});", dropdown);
-        wait.until(ExpectedConditions.elementToBeClickable(dropdown)).click();
+        dropdown.click();
 
-        // Берём первый доступный вариант срока аренды (позитивный сценарий)
-        List<WebElement> options = wait.until(ExpectedConditions
-                .presenceOfAllElementsLocatedBy(
-                        By.xpath("//div[@class='Dropdown-menu']//div[contains(@class,'Dropdown-option')]")));
-        if (!options.isEmpty()) {
-            wait.until(ExpectedConditions.elementToBeClickable(options.get(0))).click();
+        // Ждём появления меню и ищем вариант по тексту (регистронезависимо)
+        List<WebElement> options = wait.until(ExpectedConditions.visibilityOfAllElementsLocatedBy(
+                By.xpath("//div[contains(@class,'Dropdown-option')]")));
+
+        for (WebElement option : options) {
+            if (option.getText().trim().equalsIgnoreCase(duration)) {
+                option.click();
+                return;
+            }
         }
+
+        // Если не нашли — берём первый вариант
+        options.get(0).click();
     }
 
     /**
@@ -210,21 +221,5 @@ public void selectDeliveryDate(String date) {
         }
     }
 
-    /**
-     * Получает текст сообщения об успешном заказе
-     */
-    public String getSuccessMessage() {
-        try {
-            List<WebElement> headings = driver.findElements(By.xpath("//h1 | //h2 | //h3"));
-            for (WebElement heading : headings) {
-                String text = heading.getText();
-                if (text.contains("Заказ")) {
-                    return text;
-                }
-            }
-        } catch (Exception e) {
-            // Сообщение не найдено
-        }
-        return "";
-    }
+
 }

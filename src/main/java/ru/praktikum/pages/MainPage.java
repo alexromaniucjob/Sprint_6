@@ -6,7 +6,7 @@ import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
-import org.openqa.selenium.interactions.Actions;
+
 
 import java.time.Duration;
 import java.util.List;
@@ -69,7 +69,7 @@ public class MainPage {
         ((JavascriptExecutor) driver).executeScript(
                 "arguments[0].scrollIntoView({block: 'center'});", element);
 
-        wait.until(ExpectedConditions.elementToBeClickable(element)).click();
+        ((JavascriptExecutor) driver).executeScript("arguments[0].click();", element);
     }
 
     public String getQuestionText(int index) {

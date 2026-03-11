@@ -26,9 +26,8 @@ public class OrderTests extends BaseTest {
     @DisplayName("Позитивный заказ самоката через разные кнопки")
     @ParameterizedTest(name = "Кнопка: {7}, пользователь: {0} {1}")
     @CsvSource({
-            // name, surname, address, phone, date, duration, comment, entryPoint, metro, color
-            "Иван,Иванов,Москва,+79991234567,16.12.2025,Сутки,Привезите быстрее,TOP,Сокольники,BLACK",
-            "Петр,Петров,Москва,+78125551234,17.12.2025,Сутки,Позвоните перед приездом,BOTTOM,Домодедовская,GREY"
+            "Иван,Иванов,Москва,+79991234567,16.12.2025,сутки,Привезите быстрее,TOP,Сокольники,BLACK",
+            "Петр,Петров,Москва,+78125551234,17.12.2025,сутки,Позвоните перед приездом,BOTTOM,Домодедовская,GREY"
     })
     public void testOrderFlowFromDifferentButtons(
             String name,
