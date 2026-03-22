@@ -1,130 +1,84 @@
 package ru.praktikum.tests;
 
-import io.github.bonigarcia.wdm.WebDriverManager;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
-import org.openqa.selenium.JavascriptExecutor;
-import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.firefox.FirefoxDriver;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.Arguments;
 import ru.praktikum.pages.MainPage;
 import ru.praktikum.pages.OrderPage;
 
-import java.time.Duration;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class OrderTests {
+public class OrderTests extends BaseTest {
 
-    private WebDriver driver;
     private MainPage mainPage;
     private OrderPage orderPage;
 
     @BeforeEach
     public void setUp() {
-        WebDriverManager.firefoxdriver().setup();
-        driver = new FirefoxDriver();
-        driver.manage().window().maximize();
-        driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(15));
-        driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(10));
+        setUpDriver();
 
         mainPage = new MainPage(driver);
         orderPage = new OrderPage(driver);
         mainPage.navigate();
     }
 
-    @DisplayName("Заказ самоката через кнопку вверху")
-    @ParameterizedTest(name = "Пользователь: {0} {1}")
-    @CsvSource({
-            "Иван,Иванов,Москва,+79991234567,16.12.2025,Сутки,Привезите быстрее",
-            "Петр,Петров,Москва,+78125551234,17.12.2025,Сутки,Позвоните перед приездом"
-    })
-    public void testOrderFromTopButtonWithDifferentUsers(
-            String name, String surname, String address,
-            String phone, String date, String duration, String comment) {
+    @DisplayName("Позитивный заказ самоката через разные кнопки")
+    @ParameterizedTest(name = "Кнопка: {7}, пользователь: {0} {1}")
+    @MethodSource("orderData")
+    public void testOrderFlowFromDifferentButtons(
+            String name,
+            String surname,
+            String address,
+            String phone,
+            String date,
+            String duration,
+            String comment,
+            String entryPoint,
+            String metroStation,
+            String color
+    ) {
 
-        mainPage.clickOrderButtonTop();
-
-        try {
-            Thread.sleep(1000);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
+        if ("TOP".equalsIgnoreCase(entryPoint)) {
+            mainPage.clickOrderButtonTop();
+        } else {
+            mainPage.clickOrderButtonBottom();
         }
 
-        orderPage.fillFirstPart(name, surname, address, "Сокольники", phone);
+        orderPage.fillFirstPart(name, surname, address, metroStation, phone);
         orderPage.clickNextButton();
-
-        try {
-            Thread.sleep(500);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
 
         orderPage.selectDeliveryDate(date);
         orderPage.selectRentalDuration(duration);
-        orderPage.selectBlackColor();
+
+        if ("BLACK".equalsIgnoreCase(color)) {
+            orderPage.selectBlackColor();
+        } else {
+            orderPage.selectGreyColor();
+        }
+
         orderPage.fillComment(comment);
         orderPage.clickOrderButton();
 
-        try {
-            Thread.sleep(2000);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-
         assertTrue(orderPage.isSuccessMessageDisplayed(),
-                "Должно появиться сообщение об успешном создании заказа");
+                () -> "Должно появиться сообщение об успешном создании заказа. " + orderPage.getOrderSuccessDiagnostics());
     }
 
-    @DisplayName("Заказ самоката через кнопку внизу")
-    @ParameterizedTest(name = "Пользователь: {0} {1}")
-    @CsvSource({
-            "Анна,Смирнова,Москва,+79049876543,18.12.2025,Сутки,Спешу на встречу",
-            "Сергей,Федоров,Москва,+79223334455,19.12.2025,Сутки,Без комментариев"
-    })
-    public void testOrderFromBottomButtonWithDifferentUsers(
-            String name, String surname, String address,
-            String phone, String date, String duration, String comment) {
+    static Stream<Arguments> orderData() {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd.MM.yyyy");
+        String date1 = LocalDate.now().plusDays(1).format(formatter);
+        String date2 = LocalDate.now().plusDays(2).format(formatter);
 
-        mainPage.clickOrderButtonBottom();
-
-        try {
-            Thread.sleep(1000);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-
-        orderPage.fillFirstPart(name, surname, address, "Домодедовская", phone);
-        orderPage.clickNextButton();
-
-        try {
-            Thread.sleep(500);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-
-        orderPage.selectDeliveryDate(date);
-        orderPage.selectRentalDuration(duration);
-        orderPage.selectGreyColor();
-        orderPage.fillComment(comment);
-        orderPage.clickOrderButton();
-
-        try {
-            Thread.sleep(2000);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-
-        assertTrue(orderPage.isSuccessMessageDisplayed(),
-                "Должно появиться сообщение об успешном создании заказа");
-    }
-
-    @AfterEach
-    public void tearDown() {
-        if (driver != null) {
-            driver.quit();
-        }
+        return Stream.of(
+                Arguments.of("Иван", "Иванов", "Москва", "+79991234567", date1, "сутки",
+                        "Привезите быстрее", "TOP", "Сокольники", "BLACK"),
+                Arguments.of("Петр", "Петров", "Москва", "+78125551234", date2, "сутки",
+                        "Позвоните перед приездом", "BOTTOM", "Домодедовская", "GREY")
+        );
     }
 }
