@@ -26,7 +26,7 @@ public class OrderPage {
     private final By phoneInput = By.xpath("//input[@placeholder='* Телефон: на него позвонит курьер']");
     private final By commentInput = By.xpath("//input[contains(@placeholder,'Комментарий') or contains(@placeholder,'комментарий')]");
     private final By allCheckboxes = By.xpath("//input[@type='checkbox']");
-    private final By orderButton = By.xpath(".//div[contains(@class, 'Order_Buttons')]//button[text()='Заказать']");
+    private final By orderButton = By.xpath("//div[contains(@class, 'Order_Buttons')]//button[text()='Заказать']");
     private final By confirmYesButton = By.xpath("//button[text()='Да']");
     public OrderPage(WebDriver driver) {
         this.driver = driver;
@@ -98,21 +98,18 @@ public class OrderPage {
      * Выбирает дату доставки
      */
     public void selectDeliveryDate(String date) {
-        // date приходит как "16.12.2025" → конвертируем в "2025-12-16"
-        String[] parts = date.split("\\.");
-        String isoDate = parts[2] + "-" + parts[1] + "-" + parts[0];
+        // На стенде поле даты — текстовый инпут с календарём, надежнее вводить дату как текст
+        WebElement dateInput = wait.until(ExpectedConditions.elementToBeClickable(
+                By.xpath("//input[contains(@placeholder,'Когда')]")));
+        dateInput.click();
+        dateInput.sendKeys(Keys.chord(Keys.CONTROL, "a"));
+        dateInput.sendKeys(date);
+        dateInput.sendKeys(Keys.ENTER);
 
-        List<WebElement> inputs = driver.findElements(
-                By.xpath("//input[@type='date' or contains(@placeholder,'Когда')]"));
-        if (!inputs.isEmpty()) {
-            WebElement dateInput = inputs.get(0);
-            wait.until(ExpectedConditions.elementToBeClickable(dateInput));
-            ((JavascriptExecutor) driver).executeScript(
-                    "arguments[0].value = '" + isoDate + "';", dateInput);
-            // Тригерим событие change, чтобы React/Angular подхватил значение
-            ((JavascriptExecutor) driver).executeScript(
-                    "arguments[0].dispatchEvent(new Event('change', {bubbles: true}));", dateInput);
-        }
+        wait.until(d -> {
+            String value = dateInput.getDomProperty("value");
+            return value != null && !value.trim().isEmpty();
+        });
     }
 
     /**
@@ -162,8 +159,8 @@ public class OrderPage {
     private void selectColorByValue(String colorValue) {
         List<WebElement> checkboxes = driver.findElements(allCheckboxes);
         for (WebElement checkbox : checkboxes) {
-            String value = checkbox.getAttribute("value");
-            String id = checkbox.getAttribute("id");
+            String value = checkbox.getDomAttribute("value");
+            String id = checkbox.getDomAttribute("id");
 
             if ((value != null && value.contains(colorValue)) ||
                     (id != null && id.contains(colorValue))) {
@@ -190,36 +187,92 @@ public class OrderPage {
      */
     public void clickOrderButton() {
         // Находим основную кнопку оформления заказа
-        WebElement element = driver.findElement(orderButton);
+        WebElement element = wait.until(ExpectedConditions.elementToBeClickable(orderButton));
 
         // Прокручиваем страницу до кнопки (важно для Firefox)
         ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView({block: 'center'});", element);
 
         // Кликаем по кнопке
-        element.click();
+        ((JavascriptExecutor) driver).executeScript("arguments[0].click();", element);
 
         // В приложении после этого появляется модальное окно с подтверждением "Хотите оформить заказ?"
         // Нажимаем "Да", если такое окно появилось.
         try {
             WebElement yesButton = wait.until(ExpectedConditions.elementToBeClickable(confirmYesButton));
-            yesButton.click();
+            ((JavascriptExecutor) driver).executeScript("arguments[0].click();", yesButton);
         } catch (Exception e) {
             // Если модальное окно не появилось, просто продолжаем
         }
     }
 
     /**
-     * Проверяет, появилось ли окно с сообщением об успешном заказе
+     * Текст видимого заголовка модального окна заказа (если есть).
+     */
+    public String getModalHeaderTextIfPresent() {
+        try {
+            List<WebElement> headers = driver.findElements(By.xpath("//div[contains(@class,'Order_ModalHeader')]"));
+            for (WebElement header : headers) {
+                if (header.isDisplayed()) {
+                    return header.getText();
+                }
+            }
+            return "";
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    /**
+     * Текст видимого тела модального окна (если есть) — для диагностики при падении теста.
+     */
+    public String getModalBodyTextIfPresent() {
+        try {
+            List<WebElement> bodies = driver.findElements(By.xpath("//div[contains(@class,'Order_Modal') or contains(@class,'Modal') or contains(@class,'modal')]"));
+            for (WebElement body : bodies) {
+                if (body.isDisplayed()) {
+                    return body.getText();
+                }
+            }
+            return "";
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    /**
+     * Сводка по видимым модалкам для сообщения assert (использует {@link #getModalHeaderTextIfPresent()} и {@link #getModalBodyTextIfPresent()}).
+     */
+    public String getOrderSuccessDiagnostics() {
+        return "modalHeader='" + getModalHeaderTextIfPresent() + "', modalBody='" + getModalBodyTextIfPresent() + "'";
+    }
+
+    /**
+     * Ждёт появления подтверждения успешного заказа: сначала проверяет заголовок модалки
+     * ({@link #getModalHeaderTextIfPresent()}), затем — любой видимый элемент с текстом «Заказ оформлен».
      */
     public boolean isSuccessMessageDisplayed() {
+        WebDriverWait longWait = new WebDriverWait(driver, Duration.ofSeconds(30));
         try {
-            // Ищем текст "Заказ оформлен" внутри модального окна
-            By successHeader = By.xpath("//div[contains(@class, 'Order_ModalHeader') and contains(text(), 'Заказ оформлен')]");
-            return wait.until(ExpectedConditions.visibilityOfElementLocated(successHeader)).isDisplayed();
+            return longWait.until(d -> {
+                String header = getModalHeaderTextIfPresent();
+                if (header != null && header.contains("Заказ оформлен")) {
+                    return true;
+                }
+                List<WebElement> candidates = driver.findElements(
+                        By.xpath("//*[contains(normalize-space(.),'Заказ оформлен')]"));
+                for (WebElement el : candidates) {
+                    try {
+                        if (el.isDisplayed()) {
+                            return true;
+                        }
+                    } catch (Exception ignored) {
+                        // stale / not interactable
+                    }
+                }
+                return false;
+            });
         } catch (Exception e) {
             return false;
         }
     }
-
-
 }

@@ -12,7 +12,33 @@
         <maven.compiler.source>11</maven.compiler.source>
         <maven.compiler.target>11</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <!-- Браузер для UI-тестов: firefox (по умолчанию) или chrome. Пример: mvn test -Dbrowser=chrome -->
+        <browser>firefox</browser>
+        <selenium.version>4.27.0</selenium.version>
+        <!-- ≥ 6.1.0 — исправление CVE-2025-4641 (XXE) в WebDriverManager -->
+        <webdrivermanager.version>6.1.0</webdrivermanager.version>
+        <!-- Транзитивы WDM: jackson ≥2.21.1 закрывает GHSA-72hv-8253-57qq (2.19.x всё ещё в зоне advisory) -->
+        <jackson-bom.version>2.21.1</jackson-bom.version>
+        <commons-lang3.version>3.18.0</commons-lang3.version>
     </properties>
+
+    <!-- Принудительно выравниваем транзитивные зависимости WDM (сканеры ругаются на старые jackson / lang3) -->
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.fasterxml.jackson</groupId>
+                <artifactId>jackson-bom</artifactId>
+                <version>${jackson-bom.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-lang3</artifactId>
+                <version>${commons-lang3.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <dependency>
@@ -34,12 +60,19 @@
         <dependency>
             <groupId>org.seleniumhq.selenium</groupId>
             <artifactId>selenium-java</artifactId>
-            <version>4.11.0</version>
+            <version>${selenium.version}</version>
+            <exclusions>
+                <!-- IE не используется; убираем транзитивный артефакт и связанные предупреждения сканеров -->
+                <exclusion>
+                    <groupId>org.seleniumhq.selenium</groupId>
+                    <artifactId>selenium-ie-driver</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>io.github.bonigarcia</groupId>
             <artifactId>webdrivermanager</artifactId>
-            <version>5.5.0</version>
+            <version>${webdrivermanager.version}</version>
         </dependency>
     </dependencies>
 
@@ -49,6 +82,10 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>2.22.2</version>
+                <configuration>
+                    <!-- Прокидываем выбор браузера в fork JVM (иначе -Dbrowser из Maven не попадёт в тесты) -->
+                    <argLine>-Dbrowser=${browser}</argLine>
+                </configuration>
             </plugin>
         </plugins>
     </build>

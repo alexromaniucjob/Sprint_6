@@ -3,9 +3,14 @@ package ru.praktikum.tests;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.Arguments;
 import ru.praktikum.pages.MainPage;
 import ru.praktikum.pages.OrderPage;
+
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -25,10 +30,7 @@ public class OrderTests extends BaseTest {
 
     @DisplayName("Позитивный заказ самоката через разные кнопки")
     @ParameterizedTest(name = "Кнопка: {7}, пользователь: {0} {1}")
-    @CsvSource({
-            "Иван,Иванов,Москва,+79991234567,16.12.2025,сутки,Привезите быстрее,TOP,Сокольники,BLACK",
-            "Петр,Петров,Москва,+78125551234,17.12.2025,сутки,Позвоните перед приездом,BOTTOM,Домодедовская,GREY"
-    })
+    @MethodSource("orderData")
     public void testOrderFlowFromDifferentButtons(
             String name,
             String surname,
@@ -64,7 +66,19 @@ public class OrderTests extends BaseTest {
         orderPage.clickOrderButton();
 
         assertTrue(orderPage.isSuccessMessageDisplayed(),
-                "Должно появиться сообщение об успешном создании заказа");
+                () -> "Должно появиться сообщение об успешном создании заказа. " + orderPage.getOrderSuccessDiagnostics());
     }
 
+    static Stream<Arguments> orderData() {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd.MM.yyyy");
+        String date1 = LocalDate.now().plusDays(1).format(formatter);
+        String date2 = LocalDate.now().plusDays(2).format(formatter);
+
+        return Stream.of(
+                Arguments.of("Иван", "Иванов", "Москва", "+79991234567", date1, "сутки",
+                        "Привезите быстрее", "TOP", "Сокольники", "BLACK"),
+                Arguments.of("Петр", "Петров", "Москва", "+78125551234", date2, "сутки",
+                        "Позвоните перед приездом", "BOTTOM", "Домодедовская", "GREY")
+        );
+    }
 }

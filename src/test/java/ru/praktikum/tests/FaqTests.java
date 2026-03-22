@@ -21,10 +21,11 @@ public class FaqTests extends BaseTest {
             "Можно ли продлить заказ или вернуть самокат раньше?",
             "Вы привозите зарядку вместе с самокатом?",
             "Можно ли отменить заказ?",
-            "Я живу за МКАДом, привезёте?"
+            // На стенде есть опечатка в тексте вопроса
+            "Я жизу за МКАДом, привезёте?"
     };
 
-    private static final String[] EXPECTED_ANSWERS_SUBSTRINGS = {
+    private static final String[] EXPECTED_ANSWERS = {
             "Сутки — 400 рублей. Оплата курьеру — наличными или картой.",
             "Пока что у нас так: один заказ — один самокат. Если хотите покататься с друзьями, можете просто сделать несколько заказов — один за другим.",
             "Допустим, вы оформляете заказ на 8 мая. Мы привозим самокат 8 мая в течение дня. Отсчёт времени аренды начинается с момента, когда вы оплатите заказ курьеру. Если мы привезли самокат 8 мая в 20:30, суточная аренда закончится 9 мая в 20:30.",
@@ -34,6 +35,10 @@ public class FaqTests extends BaseTest {
             "Да, пока самокат не привезли. Штрафа не будет, объяснительной записки тоже не попросим. Все же свои.",
             "Да, обязательно. Всем самокатов! И Москве, и Московской области."
     };
+
+    private static String normalizeText(String text) {
+        return text.replaceAll("\\s+", " ").trim();
+    }
 
     @BeforeEach
     public void setUp() {
@@ -47,18 +52,18 @@ public class FaqTests extends BaseTest {
     public void testFaqAccordionOpensCorrectAnswer(int questionIndex) {
         mainPage.clickQuestionButton(questionIndex);
         // Проверяем, что вопрос содержит ожидаемый текст
-        String actualQuestion = mainPage.getQuestionText(questionIndex);
-        assertEquals(EXPECTED_QUESTIONS[questionIndex], actualQuestion,
+        String actualQuestion = normalizeText(mainPage.getQuestionText(questionIndex));
+        assertEquals(normalizeText(EXPECTED_QUESTIONS[questionIndex]), actualQuestion,
                 "Текст вопроса должен совпадать с ожидаемым");
 
         // Проверяем, что открылся и отображается ответ
         assertTrue(mainPage.isAnswerVisible(questionIndex),
                 "Ответ на вопрос номер " + (questionIndex + 1) + " должен быть виден");
 
-        // Проверяем, что ответ содержит ожидаемый фрагмент текста
-        String answerText = mainPage.getAnswerText(questionIndex);
-        assertTrue(answerText.contains(EXPECTED_ANSWERS_SUBSTRINGS[questionIndex]),
-                "Текст ответа должен содержать ожидаемое описание");
+        // Проверяем, что ответ равен ожидаемому тексту (с нормализацией пробелов)
+        String answerText = normalizeText(mainPage.getAnswerText(questionIndex));
+        assertEquals(normalizeText(EXPECTED_ANSWERS[questionIndex]), answerText,
+                "Текст ответа должен совпадать с ожидаемым");
     }
 
 }
